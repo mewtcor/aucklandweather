@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auckland Weather</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a "now" hero beside today's stats, then a 24-hour chart, then the 7-day strip. */
+:root {
+  --bg: #eef3f3; --surface: #ffffff; --ink: #10293a; --muted: #5b7180;
+  --line: #d3dfe2; --sea: #1f6f8b; --sea-soft: rgba(31,111,139,.14); --rain: #6aa6c4;
+  --accent: #c8323c; /* pōhutukawa */
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1820; --surface: #12232d; --ink: #e4eef1; --muted: #8ea5b1;
+    --line: #233945; --sea: #5bb3d0; --sea-soft: rgba(91,179,208,.16); --rain: #4f8eac;
+    --accent: #ef6b6b; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+main { max-width: 1040px; margin: 0 auto; padding: 28px 16px 48px; display: grid; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { font: 700 1.6rem/1.1 var(--display); margin: 0; letter-spacing: -.01em; }
+h1 span { color: var(--muted); font-weight: 500; }
+.meta { font: .8rem var(--mono); color: var(--muted); display: flex; gap: 12px; align-items: center; }
+button { font: inherit; color: var(--sea); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--sea); }
+button:focus-visible { outline: 2px solid var(--sea); outline-offset: 2px; }
+.label { font: 500 .72rem var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; min-width: 0; }
+
+.top { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; }
+.now { display: grid; gap: 6px; align-content: start; }
+.temp { font: 700 clamp(4rem, 12vw, 6.5rem)/.9 var(--display); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.temp sup { font-size: .35em; vertical-align: .9em; font-weight: 500; color: var(--muted); }
+.cond { font: 500 1.25rem var(--display); }
+.feels { color: var(--muted); }
+.range { font: .9rem var(--mono); }
+.range b { color: var(--accent); font-weight: 500; }
+.range i { color: var(--sea); font-style: normal; }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+.stat { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; }
+.stat .v { font: 500 1.35rem var(--display); font-variant-numeric: tabular-nums; }
+.stat .v small { font: .8rem var(--mono); color: var(--muted); margin-left: 3px; }
+.stat .sub { font-size: .8rem; color: var(--muted); }
+.pill { display: inline-block; font: 500 .7rem var(--mono); padding: 1px 7px; border-radius: 99px; margin-left: 6px; vertical-align: middle; }
+.lv-low { background: rgba(60,160,90,.18); color: #2e8a4c; }
+.lv-mod { background: rgba(220,170,40,.2); color: #a77a06; }
+.lv-high { background: rgba(200,50,60,.16); color: var(--accent); }
+
+.chart-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.legend { display: flex; gap: 14px; font: .75rem var(--mono); color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
+.chart { overflow-x: auto; }
+.chart svg { display: block; width: 100%; min-width: 620px; height: auto; }
+.chart text { font: 11px var(--mono); fill: var(--muted); }
+
+.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+.day { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 14px 6px; }
+.day.today { border-color: var(--sea); }
+.day .dn { font: 500 .85rem var(--display); }
+.day .ic { font-size: 1.6rem; line-height: 1; }
+.day .hi { font: 500 1.05rem var(--display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.day .lo { font: .85rem var(--mono); color: var(--muted); }
+.day .rn { font: .72rem var(--mono); color: var(--sea); min-height: 1em; }
+
+.err { color: var(--accent); }
+footer { font-size: .75rem; color: var(--muted); }
+footer a { color: inherit; }
+
+@media (max-width: 760px) {
+  .top { grid-template-columns: 1fr; }
+  .days { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Auckland <span>Tāmaki Makaurau</span></h1>
+    <div class="meta"><span id="updated">Loading…</span><button id="refresh" type="button">Refresh</button></div>
+  </header>
+
+  <section class="top">
+    <div class="panel now">
+      <span class="label">Right now</span>
+      <div class="temp" id="temp">--<sup>°C</sup></div>
+      <div class="cond" id="cond">&nbsp;</div>
+      <div class="feels" id="feels">&nbsp;</div>
+      <div class="range" id="range">&nbsp;</div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section class="panel">
+    <div class="chart-head">
+      <span class="label">Next 24 hours</span>
+      <div class="legend"><span style="--c: var(--accent)">Temperature °C</span><span style="--c: var(--rain)">Chance of rain %</span></div>
+    </div>
+    <div class="chart" id="chart"></div>
+  </section>
+
+  <section>
+    <div class="label" style="margin-bottom:10px">7-day forecast</div>
+    <div class="days" id="days"></div>
+  </section>
+
+  <footer>Data from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> for central Auckland (36.85°S, 174.76°E). Refreshes every 15 minutes.</footer>
+</main>
+
+<script>
+const URL_API = "https://api.open-meteo.com/v1/forecast?latitude=-36.8485&longitude=174.7633&timezone=Pacific%2FAuckland&wind_speed_unit=kmh&forecast_days=7" +
+  "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation,pressure_msl,is_day" +
+  "&hourly=temperature_2m,precipitation_probability" +
+  "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,uv_index_max,sunrise,sunset";
+
+// WMO weather codes -> [label, day icon, night icon]
+const WMO = {
+  0: ["Clear", "☀️", "🌙"], 1: ["Mostly clear", "🌤️", "🌙"], 2: ["Partly cloudy", "⛅", "☁️"], 3: ["Overcast", "☁️", "☁️"],
+  45: ["Fog", "🌫️", "🌫️"], 48: ["Freezing fog", "🌫️", "🌫️"],
+  51: ["Light drizzle", "🌦️", "🌧️"], 53: ["Drizzle", "🌦️", "🌧️"], 55: ["Heavy drizzle", "🌧️", "🌧️"],
+  56: ["Freezing drizzle", "🌧️", "🌧️"], 57: ["Freezing drizzle", "🌧️", "🌧️"],
+  61: ["Light rain", "🌦️", "🌧️"], 63: ["Rain", "🌧️", "🌧️"], 65: ["Heavy rain", "🌧️", "🌧️"],
+  66: ["Freezing rain", "🌧️", "🌧️"], 67: ["Freezing rain", "🌧️", "🌧️"],
+  71: ["Light snow", "🌨️", "🌨️"], 73: ["Snow", "🌨️", "🌨️"], 75: ["Heavy snow", "❄️", "❄️"], 77: ["Snow grains", "🌨️", "🌨️"],
+  80: ["Showers", "🌦️", "🌧️"], 81: ["Heavy showers", "🌧️", "🌧️"], 82: ["Violent showers", "⛈️", "⛈️"],
+  85: ["Snow showers", "🌨️", "🌨️"], 86: ["Snow showers", "🌨️", "🌨️"],
+  95: ["Thunderstorm", "⛈️", "⛈️"], 96: ["Thunderstorm, hail", "⛈️", "⛈️"], 99: ["Thunderstorm, hail", "⛈️", "⛈️"],
+};
+const wmo = (c, day = 1) => { const w = WMO[c] || ["Unknown", "❔", "❔"]; return { label: w[0], icon: day ? w[1] : w[2] }; };
+const compass = d => ["N","NE","E","SE","S","SW","W","NW"][Math.round(d / 45) % 8];
+const r = n => Math.round(n);
+const hhmm = iso => iso.slice(11, 16);
+const $ = id => document.getElementById(id);
+
+function uvLevel(uv) {
+  if (uv < 3) return ["Low", "lv-low"];
+  if (uv < 6) return ["Moderate", "lv-mod"];
+  return [uv < 8 ? "High" : uv < 11 ? "Very high" : "Extreme", "lv-high"];
+}
+
+function render(d) {
+  const c = d.current, dy = d.daily;
+  const now = wmo(c.weather_code, c.is_day);
+  $("temp").innerHTML = `${r(c.temperature_2m)}<sup>°C</sup>`;
+  $("cond").textContent = `${now.icon} ${now.label}`;
+  $("feels").textContent = `Feels like ${r(c.apparent_temperature)}°`;
+  $("range").innerHTML = `Today <b>${r(dy.temperature_2m_max[0])}°</b> / <i>${r(dy.temperature_2m_min[0])}°</i>`;
+
+  const [uvTxt, uvCls] = uvLevel(dy.uv_index_max[0]);
+  const stats = [
+    ["Wind", `${r(c.wind_speed_10m)}<small>km/h</small>`, `${compass(c.wind_direction_10m)} · gusts ${r(c.wind_gusts_10m)} km/h`],
+    ["Humidity", `${r(c.relative_humidity_2m)}<small>%</small>`, `Pressure ${r(c.pressure_msl)} hPa`],
+    ["Rain today", `${dy.precipitation_sum[0].toFixed(1)}<small>mm</small>`, `${dy.precipitation_probability_max[0] ?? 0}% chance`],
+    ["UV index", `${dy.uv_index_max[0].toFixed(1)}<span class="pill ${uvCls}">${uvTxt}</span>`, `Sun ${hhmm(dy.sunrise[0])} – ${hhmm(dy.sunset[0])}`],
+  ];
+  $("stats").innerHTML = stats.map(([l, v, s]) =>
+    `<div class="stat"><span class="label">${l}</span><span class="v">${v}</span><span class="sub">${s}</span></div>`).join("");
+
+  // next 24 hours from the current hour
+  const start = Math.max(0, d.hourly.time.findIndex(t => t >= c.time.slice(0, 13)));
+  const times = d.hourly.time.slice(start, start + 24);
+  renderChart(times, d.hourly.temperature_2m.slice(start, start + 24), d.hourly.precipitation_probability.slice(start, start + 24));
+
+  const fmt = new Intl.DateTimeFormat("en-NZ", { weekday: "short", timeZone: "UTC" });
+  $("days").innerHTML = dy.time.map((t, i) => {
+    const w = wmo(dy.weather_code[i]);
+    const p = dy.precipitation_probability_max[i] ?? 0;
+    return `<div class="panel day${i === 0 ? " today" : ""}" title="${w.label}">
+      <span class="dn">${i === 0 ? "Today" : fmt.format(new Date(t + "T00:00Z"))}</span>
+      <span class="ic" aria-label="${w.label}">${w.icon}</span>
+      <span class="hi">${r(dy.temperature_2m_max[i])}°</span>
+      <span class="lo">${r(dy.temperature_2m_min[i])}°</span>
+      <span class="rn">${p >= 20 ? `💧 ${p}%` : ""}</span>
+    </div>`;
+  }).join("");
+
+  $("updated").textContent = `Updated ${hhmm(c.time)} NZ time`;
+}
+
+function renderChart(times, temps, rain) {
+  const W = 960, H = 240, L = 34, R = 36, T = 22, B = 30;
+  const n = times.length, step = (W - L - R) / n;
+  const lo = Math.floor(Math.min(...temps)) - 1;
+  const hi = lo + Math.ceil((Math.max(...temps) + 1 - lo) / 4) * 4; // span divisible by 4 → whole-degree ticks
+  const x = i => L + step * (i + .5);
+  const y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const yr = p => T + (H - T - B) * (1 - p / 100);
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Temperature and chance of rain for the next 24 hours">`;
+  // grid + temp axis (left)
+  const ticks = 4;
+  for (let k = 0; k <= ticks; k++) {
+    const v = lo + (hi - lo) * k / ticks, yy = y(v);
+    s += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="var(--line)"/>`;
+    s += `<text x="${L - 6}" y="${yy + 4}" text-anchor="end">${v.toFixed(0)}°</text>`;
+    s += `<text x="${W - R + 6}" y="${yy + 4}">${100 * k / ticks}%</text>`;
+  }
+  // rain bars
+  rain.forEach((p, i) => {
+    if (p > 0) s += `<rect x="${x(i) - step * .3}" y="${yr(p)}" width="${step * .6}" height="${yr(0) - yr(p)}" rx="2" fill="var(--rain)" opacity=".55"/>`;
+  });
+  // temp area + line
+  const pts = temps.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  s += `<polygon points="${x(0)},${H - B} ${pts} ${x(n - 1)},${H - B}" fill="var(--accent)" opacity=".08"/>`;
+  s += `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round"/>`;
+  // hour labels every 3h, temp labels at max/min and first point
+  const iMax = temps.indexOf(Math.max(...temps)), iMin = temps.indexOf(Math.min(...temps));
+  temps.forEach((v, i) => {
+    if (i % 3 === 0) s += `<text x="${x(i)}" y="${H - 10}" text-anchor="middle">${i === 0 ? "Now" : hhmm(times[i])}</text>`;
+    if (i === 0 || i === iMax || i === iMin) {
+      s += `<circle cx="${x(i)}" cy="${y(v)}" r="3.5" fill="var(--accent)"/>`;
+      s += `<text x="${x(i)}" y="${y(v) - 9}" text-anchor="middle" style="fill:var(--ink)">${r(v)}°</text>`;
+    }
+  });
+  $("chart").innerHTML = s + "</svg>";
+}
+
+async function load() {
+  $("updated").textContent = "Loading…";
+  try {
+    const res = await fetch(URL_API);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    render(await res.json());
+  } catch (e) {
+    $("updated").innerHTML = `<span class="err">Couldn't reach the weather service (${e.message}). Check your connection and press Refresh.</span>`;
+  }
+}
+
+$("refresh").addEventListener("click", load);
+load();
+setInterval(load, 15 * 60 * 1000);
+</script>
+</body>
+</html>
